@@ -3,9 +3,6 @@ Karena kebijakan keamanan pada sistem operasi tertentu (khususnya Windows), ikut
 
 1.  **Buka Terminal sebagai Administrator**: Cari PowerShell atau CMD, klik kanan dan pilih **Run as Administrator**.
 2.  **Masuk ke Direktori Proyek**:
-    ```powershell
-    cd C:\Users\dimas\Documents\Code\Codding\deep-learning-project-capstone
-    ```
 3.  **Jalankan API**:
     ```powershell
     python main.py
