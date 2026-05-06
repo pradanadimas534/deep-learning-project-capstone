@@ -1,67 +1,46 @@
-from fastapi import FastAPI, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-import fitz  # PyMuPDF
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from contextlib import asynccontextmanager
+from engine import handler
+import uvicorn
 
-from engine import InferenceEngine
+# Skema Request: Backend Laravel akan mengirimkan JSON {"text": "isi cv..."}
+class CvRequest(BaseModel):
+    text: str
 
-app = FastAPI(title="AI Job Recommendation API 🚀")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Mengatur startup aplikasi (memuat model sekali saja)."""
+    success = handler.load_components()
+    if not success:
+        print("🛑 PERINGATAN: Server berjalan tanpa model!")
+    yield
+    print("Shutting down server...")
 
-engine = InferenceEngine()
-
-# =====================
-# CORS (biar frontend bisa akses)
-# =====================
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+# Inisialisasi FastAPI
+app = FastAPI(
+    title="CV Recommendation API",
+    description="API untuk klasifikasi lowongan berdasarkan scan teks CV",
+    lifespan=lifespan
 )
 
-# =====================
-# ROOT
-# =====================
 @app.get("/")
-def home():
-    return {"message": "AI Job Recommendation API is running 🚀"}
+async def health_check():
+    return {"status": "online", "message": "API siap menerima request"}
 
-# =====================
-# PREDICT DARI TEXT
-# =====================
 @app.post("/predict")
-async def predict_text(data: dict):
-    text = data.get("cv_text", "")
+async def get_recommendation(request: CvRequest):
+    # Validasi jika teks kosong
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="Teks CV tidak boleh kosong")
 
-    if not text:
-        return {"error": "cv_text is required"}
-
-    results = engine.predict(text)
-
-    return {
-        "input": text,
-        "recommendations": results
-    }
-
-# =====================
-# PREDICT DARI PDF CV
-# =====================
-@app.post("/scan-cv")
-async def scan_cv(file: UploadFile = File(...)):
     try:
-        pdf_bytes = await file.read()
-        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-
-        text = ""
-        for page in doc:
-            text += page.get_text()
-
-        results = engine.predict(text)
-
-        return {
-            "filename": file.filename,
-            "recommendations": results
-        }
-
+        # Jalankan prediksi melalui handler
+        result = handler.predict(request.text)
+        return result
     except Exception as e:
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    # Penting: reload=False untuk menghindari penguncian file oleh sistem Windows
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=False)
