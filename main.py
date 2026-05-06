@@ -13,7 +13,7 @@ async def lifespan(app: FastAPI):
     """Mengatur startup aplikasi (memuat model sekali saja)."""
     success = handler.load_components()
     if not success:
-        print("🛑 PERINGATAN: Server berjalan tanpa model!")
+        print("PERINGATAN: Server berjalan tanpa model!")
     yield
     print("Shutting down server...")
 
