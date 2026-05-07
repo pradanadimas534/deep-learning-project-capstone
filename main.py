@@ -1,46 +1,35 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from engine import handler
-import uvicorn
 
-# Skema Request: Backend Laravel akan mengirimkan JSON {"text": "isi cv..."}
-class CvRequest(BaseModel):
-    text: str
+from app.api.routes import router
+from app.core.config import settings
+from app.services.cv_prediction_service import CVPredictionService
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Mengatur startup aplikasi (memuat model sekali saja)."""
-    success = handler.load_components()
-    if not success:
-        print("PERINGATAN: Server berjalan tanpa model!")
+    """Muat model saat startup, cleanup saat shutdown."""
+    print("[STARTUP] Memuat model ML...")
+    CVPredictionService.load_model()
+    print("[STARTUP] Model siap!")
     yield
-    print("Shutting down server...")
+    print("[SHUTDOWN] Aplikasi berhenti.")
 
-# Inisialisasi FastAPI
+
 app = FastAPI(
-    title="CV Recommendation API",
-    description="API untuk klasifikasi lowongan berdasarkan scan teks CV",
-    lifespan=lifespan
+    title=settings.APP_NAME,
+    description="API untuk memprediksi kategori pekerjaan dari teks CV.",
+    version=settings.APP_VERSION,
+    lifespan=lifespan,
 )
 
-@app.get("/")
-async def health_check():
-    return {"status": "online", "message": "API siap menerima request"}
+app.include_router(router, prefix="/api/v1")
 
-@app.post("/predict")
-async def get_recommendation(request: CvRequest):
-    # Validasi jika teks kosong
-    if not request.text.strip():
-        raise HTTPException(status_code=400, detail="Teks CV tidak boleh kosong")
 
-    try:
-        # Jalankan prediksi melalui handler
-        result = handler.predict(request.text)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-if __name__ == "__main__":
-    # Penting: reload=False untuk menghindari penguncian file oleh sistem Windows
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=False)
+@app.get("/", tags=["Health"])
+def root():
+    return {
+        "status": "ok",
+        "app": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+    }
