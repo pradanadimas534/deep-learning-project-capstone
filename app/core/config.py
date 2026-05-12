@@ -7,7 +7,7 @@ class Settings(BaseSettings):
 
     # Path ke file model dan encoder — sesuaikan dengan lokasi file Anda
     MODEL_PATH: str = "model/model.keras"
-    ENCODER_PATH: str = "model/encoder.pkl"
+    ENCODER_PATH: str = "model/label_encoder.pkl"
 
     class Config:
         env_file = ".env"
