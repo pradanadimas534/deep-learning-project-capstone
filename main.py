@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.api.routes import router
@@ -21,6 +22,19 @@ app = FastAPI(
     description="API untuk memprediksi kategori pekerjaan dari teks CV.",
     version=settings.APP_VERSION,
     lifespan=lifespan,
+)
+
+# -----------------------------------------------------------------------
+# CORS Middleware
+# Daftar origins yang diizinkan mengakses API ini.
+# Sesuaikan ALLOWED_ORIGINS di .env saat production.
+# -----------------------------------------------------------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(router, prefix="/api/v1")

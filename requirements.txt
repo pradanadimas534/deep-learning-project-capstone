@@ -2,6 +2,8 @@ fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
 pydantic>=2.7.0
 pydantic-settings>=2.2.0
-tensorflow>=2.16.0
-keras>=3.3.0
-numpy>=1.26.0
+
+# Python 3.10 — TF 2.13 adalah versi stabil terakhir yang support py3.10
+# Keras 2.x sudah bundled di dalam TF 2.13 (tidak perlu install keras terpisah)
+tensorflow==2.13.0
+numpy>=1.23.5,<2.0.0

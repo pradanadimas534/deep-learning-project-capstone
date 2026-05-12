@@ -1,87 +1,90 @@
 # CV Job Category Predictor API
 
-API berbasis FastAPI untuk memprediksi kategori pekerjaan dari teks CV menggunakan model TensorFlow.
+API FastAPI untuk memprediksi kategori pekerjaan dari teks CV,
+sekaligus memberikan rekomendasi role dan gap skills berdasarkan dataset asli.
+
+## Cara Kerja
+
+```
+Teks CV masuk
+     ↓
+Model TF → prediksi kategori (misal: "Software")
+     ↓
+Lookup skill_reference.json (dibangun dari dataset CSV)
+→ ambil semua role + skill yang dibutuhkan di kategori tersebut
+     ↓
+Hitung match % CV vs skill tiap role
+     ↓
+Output: kategori + confidence + skills + rekomendasi + gap_skills
+```
 
 ## Struktur Project
 
 ```
 cv_predictor/
-├── main.py                          # Entrypoint FastAPI
+├── main.py
+├── build_skill_reference.py     ← jalankan SEKALI sebelum start server
 ├── requirements.txt
 ├── .env.example
-├── .gitignore
-├── model/                           # Letakkan file model di sini
-│   ├── model.keras
-│   └── encoder.pkl
+├── model/
+│   ├── model.keras              ← taruh di sini
+│   ├── encoder.pkl              ← taruh di sini
+│   └── skill_reference.json    ← digenerate oleh build_skill_reference.py
 └── app/
-    ├── api/
-    │   └── routes.py                # Endpoint API
-    ├── core/
-    │   └── config.py                # Konfigurasi & settings
-    ├── schemas/
-    │   └── cv_schema.py             # Pydantic request/response
+    ├── api/routes.py
+    ├── core/config.py
+    ├── schemas/cv_schema.py
     └── services/
-        └── cv_prediction_service.py # Logika prediksi ML
+        ├── cv_prediction_service.py
+        └── cv_analyzer_service.py
 ```
 
-## Instalasi
+## Setup
 
 ```bash
-# 1. Clone / ekstrak project
-cd cv_predictor
+# 1. Buat virtual environment Python 3.10
+python3.10 -m venv venv
+source venv/bin/activate
 
-# 2. Buat virtual environment
-python -m venv venv
-source venv/bin/activate        # Linux/Mac
-venv\Scripts\activate           # Windows
-
-# 3. Install dependencies
+# 2. Install dependencies
 pip install -r requirements.txt
 
-# 4. Salin dan isi .env
+# 3. Salin konfigurasi
 cp .env.example .env
-# Edit .env, sesuaikan MODEL_PATH dan ENCODER_PATH
 
-# 5. Letakkan file model
-# Salin model.keras dan encoder.pkl ke folder model/
-```
+# 4. Taruh model ke folder model/
+#    model/model.keras  &  model/encoder.pkl
 
-## Menjalankan Server
+# 5. WAJIB — Build skill reference dari dataset CSV
+python build_skill_reference.py --csv all_jobs_data.csv
 
-```bash
+# 6. Jalankan server
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
-
-## Endpoint
-
-| Method | URL | Deskripsi |
-|--------|-----|-----------|
-| `GET`  | `/` | Info aplikasi |
-| `GET`  | `/api/v1/health` | Status model |
-| `POST` | `/api/v1/predict` | Prediksi kategori CV |
 
 ## Contoh Request
 
 ```bash
 curl -X POST "http://localhost:8000/api/v1/predict" \
   -H "Content-Type: application/json" \
-  -d '{
-    "teks_cv": "Nama: Budi Santoso. Pengalaman 3 tahun sebagai Data Analyst. Keahlian Python, SQL, Tableau."
-  }'
+  -d '{"teks_cv": "Saya berpengalaman 3 tahun di bidang Software Engineering. Menguasai Python, React, Docker, AWS, dan SQL."}'
 ```
 
 ## Contoh Response
 
 ```json
 {
-  "kategori": "Data Science",
-  "confidence": 94.72,
+  "kategori": "Software",
+  "confidence": 91.3,
+  "skills": ["Python", "React", "Docker", "AWS", "SQL"],
+  "rekomendasi": [
+    { "role": "Systems developer", "match": 71 },
+    { "role": "Software Engineer", "match": 57 },
+    { "role": "Machine Learning Engineer", "match": 42 }
+  ],
+  "gap_skills": ["Java", "C++", "Machine Learning"],
   "status": "success"
 }
 ```
 
-## Dokumentasi Interaktif
-
-Setelah server berjalan, buka:
-- Swagger UI : http://localhost:8000/docs
-- ReDoc      : http://localhost:8000/redoc
+Dokumentasi Swagger: http://localhost:8000/docs

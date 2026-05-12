@@ -3,16 +3,36 @@ from typing import Tuple
 
 import numpy as np
 import tensorflow as tf
-import keras
+
+# -----------------------------------------------------------------------
+# Kompatibilitas Keras 2.x (TF 2.13, Python 3.10) vs Keras 3.x (TF 2.16+)
+# - Keras 3.x  : import keras → keras.saving.register_keras_serializable
+# - Keras 2.x  : bundled di tf.keras → tf.keras.utils.register_keras_serializable
+# -----------------------------------------------------------------------
+try:
+    import keras
+    register_serializable = keras.saving.register_keras_serializable
+    KerasLayer = keras.layers.Layer
+    KerasDense = keras.layers.Dense
+    KerasLayerNorm = keras.layers.LayerNormalization
+    KerasActivation = keras.layers.Activation
+    KerasAdd = keras.layers.Add
+except (ImportError, AttributeError):
+    keras = tf.keras  # type: ignore[assignment]
+    register_serializable = tf.keras.utils.register_keras_serializable
+    KerasLayer = tf.keras.layers.Layer
+    KerasDense = tf.keras.layers.Dense
+    KerasLayerNorm = tf.keras.layers.LayerNormalization
+    KerasActivation = tf.keras.layers.Activation
+    KerasAdd = tf.keras.layers.Add
 
 from app.core.config import settings
 
 # -----------------------------------------------------------------------
-# Patch kompatibilitas Keras:
-# Strip 'quantization_config' dari semua layer agar model lama bisa
-# di-load di versi Keras yang lebih baru atau sebaliknya.
+# Patch kompatibilitas: strip 'quantization_config' dari semua layer.
+# Field ini ada di model yang disimpan dengan Keras versi lebih baru.
 # -----------------------------------------------------------------------
-_original_layer_from_config = keras.layers.Layer.from_config.__func__
+_original_layer_from_config = KerasLayer.from_config.__func__
 
 
 @classmethod  # type: ignore[misc]
@@ -21,39 +41,37 @@ def _patched_layer_from_config(cls, config):
     return _original_layer_from_config(cls, config)
 
 
-keras.layers.Layer.from_config = _patched_layer_from_config
+KerasLayer.from_config = _patched_layer_from_config
 # -----------------------------------------------------------------------
 
 
 # -----------------------------------------------------------------------
-# CustomResidualBlock — direkonstruksi dari config model.keras
-# Block 1: units=64, input=64  → tanpa projection
-# Block 2: units=32, input=64  → pakai projection
+# CustomResidualBlock - direkonstruksi dari config model.keras
+# Block 1: units=64, input=64  -> tanpa projection
+# Block 2: units=32, input=64  -> pakai projection
 # -----------------------------------------------------------------------
-@keras.saving.register_keras_serializable(package="Custom")
-class CustomResidualBlock(keras.layers.Layer):
+@register_serializable(package="Custom")
+class CustomResidualBlock(KerasLayer):
     """
     Arsitektur:
-        dense1 (ReLU) → dense2 → LayerNorm → Add(shortcut) → ReLU
+        dense1 (ReLU) -> dense2 -> LayerNorm -> Add(shortcut) -> ReLU
     Projection layer dibuat otomatis jika input_dim != units.
     """
 
     def __init__(self, units: int, **kwargs):
         super().__init__(**kwargs)
         self.units = units
-        self.dense1 = keras.layers.Dense(units, activation="relu", name="dense1")
-        self.dense2 = keras.layers.Dense(units, name="dense2")
-        self.layer_norm = keras.layers.LayerNormalization(name="layer_norm")
-        self.projection_layer = None  # dibuat di build() jika diperlukan
-        self.activation = keras.layers.Activation("relu", name="activation")
-        self.add_layer = keras.layers.Add()
+        self.dense1 = KerasDense(units, activation="relu", name="dense1")
+        self.dense2 = KerasDense(units, name="dense2")
+        self.layer_norm = KerasLayerNorm(name="layer_norm")
+        self.projection_layer = None
+        self.activation = KerasActivation("relu", name="activation")
+        self.add_layer = KerasAdd()
 
     def build(self, input_shape):
         input_dim = input_shape[-1]
         if input_dim != self.units:
-            self.projection_layer = keras.layers.Dense(
-                self.units, name="projection_layer"
-            )
+            self.projection_layer = KerasDense(self.units, name="projection_layer")
         super().build(input_shape)
 
     def call(self, inputs):
@@ -67,7 +85,6 @@ class CustomResidualBlock(keras.layers.Layer):
         config = super().get_config()
         config["units"] = self.units
         return config
-# -----------------------------------------------------------------------
 
 
 class CVPredictionService:
@@ -87,7 +104,10 @@ class CVPredictionService:
         """
         if cls._model is None or cls._encoder is None:
             print(f"[INFO] Memuat model dari   : {settings.MODEL_PATH}")
-            cls._model = tf.keras.models.load_model(settings.MODEL_PATH)
+            cls._model = tf.keras.models.load_model(
+                settings.MODEL_PATH,
+                custom_objects={"CustomResidualBlock": CustomResidualBlock},
+            )
 
             print(f"[INFO] Memuat encoder dari : {settings.ENCODER_PATH}")
             with open(settings.ENCODER_PATH, "rb") as f:
