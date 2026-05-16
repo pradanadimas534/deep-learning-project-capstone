@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
 
     MODEL_PATH:   str = "model/model.keras"
-    ENCODER_PATH: str = "model/encoder.pkl"
+    ENCODER_PATH: str = "model/label_encoder.pkl"
 
     # Dataset CSV — sumber data lowongan asli
     DATASET_PATH: str = "data/all_jobs_data.csv"
