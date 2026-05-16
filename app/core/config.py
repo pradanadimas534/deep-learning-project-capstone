@@ -7,22 +7,21 @@ class Settings(BaseSettings):
     APP_NAME: str = "CV Job Category Predictor"
     APP_VERSION: str = "1.0.0"
 
-    MODEL_PATH: str = "model/model.keras"
+    MODEL_PATH:   str = "model/model.keras"
     ENCODER_PATH: str = "model/encoder.pkl"
 
-    # Dibangun dari dataset CSV via build_skill_reference.py
-    SKILL_REFERENCE_PATH: str = "model/skill_reference.json"
+    # Dataset CSV — sumber data lowongan asli
+    DATASET_PATH: str = "data/all_jobs_data.csv"
 
     # CORS
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ]
+    ALLOWED_ORIGINS: List[str] = ["*"]
 
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod
     def parse_origins(cls, v):
         if isinstance(v, str):
+            if v == "*":
+                return ["*"]
             return [o.strip() for o in v.split(",") if o.strip()]
         return v
 

@@ -1,39 +1,39 @@
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
 class CVTextRequest(BaseModel):
-    """Body request untuk prediksi dari teks CV."""
-
     teks_cv: str = Field(
         ...,
         min_length=10,
-        description="Isi teks CV yang akan diprediksi kategori pekerjaannya.",
+        description="Isi teks CV yang akan dianalisis.",
         examples=[
-            "Nama: Budi Santoso. Pengalaman: 3 tahun sebagai Data Analyst di perusahaan fintech. "
-            "Keahlian: Python, SQL, Tableau, Machine Learning."
+            "Nama: Budi. Pengalaman 3 tahun sebagai software engineer. "
+            "Menguasai Python, React, Docker, AWS, SQL."
         ],
     )
 
 
-class RekomendasiRole(BaseModel):
-    """Satu item rekomendasi role pekerjaan."""
-    role: str = Field(..., description="Nama role pekerjaan.")
-    match: int = Field(..., description="Persentase kesesuaian role (0–100).")
+class RekomendasiItem(BaseModel):
+    job_title:         str            = Field(..., description="Nama posisi pekerjaan.")
+    company:           str            = Field(..., description="Nama perusahaan.")
+    location:          str            = Field(..., description="Lokasi pekerjaan.")
+    salary:            Optional[float]= Field(None, description="Gaji (jika tersedia).")
+    skills_dibutuhkan: List[str]      = Field(..., description="Skill yang dibutuhkan perusahaan untuk posisi ini.")
+    match:             int            = Field(..., description="Persentase kesesuaian skill CV vs skill dibutuhkan (0-100).")
 
 
 class PredictionResponse(BaseModel):
-    """Response lengkap hasil prediksi CV."""
-
-    kategori: str = Field(..., description="Kategori pekerjaan hasil prediksi model.")
-    confidence: float = Field(..., description="Confidence score prediksi dalam persen (0–100).")
-    skills: List[str] = Field(default=[], description="Daftar skill yang terdeteksi dari teks CV.")
-    rekomendasi: List[RekomendasiRole] = Field(default=[], description="Daftar rekomendasi role beserta persentase match.")
-    gap_skills: List[str] = Field(default=[], description="Skill yang belum dimiliki tapi dibutuhkan untuk kategori ini.")
-    status: str = Field(default="success", description="Status prediksi.")
+    kategori:    str                  = Field(..., description="Kategori hasil prediksi model.")
+    confidence:  float                = Field(..., description="Confidence score model dalam persen.")
+    is_valid:    bool                 = Field(..., description="True jika prediksi valid dan skill terdeteksi.")
+    pesan:       Optional[str]        = Field(None, description="Pesan jika prediksi tidak valid.")
+    skills:      List[str]            = Field(default=[], description="Skill yang terdeteksi dari CV.")
+    rekomendasi: List[RekomendasiItem]= Field(default=[], description="Lowongan yang paling cocok dengan skill CV.")
+    gap_skills:  List[str]            = Field(default=[], description="Skill yang belum dimiliki tapi dibutuhkan.")
+    status:      str                  = Field(default="success")
 
 
 class ErrorResponse(BaseModel):
-    """Response saat terjadi error."""
     status: str = Field(default="error")
     detail: str
